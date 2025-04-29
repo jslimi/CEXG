@@ -1,7 +1,23 @@
+import numpy as np
+
 from cexg import *
+from dfa2rnn import dfa2srn
+
+#defining transition matrix
+T_m = np.array([[0, 1, 1, 0],[0, 0, 0, 1], [0, 0, 0, 1], [0, 0, 0, 1]])
+#defining decoder matrix
+D_m = np.array([0, 0, 0, 1])
+#transforming dfa to srn
+srn = dfa2srn(T_m, D_m)
 
 # defining the alphabet
 alphabet_ = [np.array([1.0, 0.0]), np.array([0.0, 1.0])] # [a, b]
+letter = np.zeros(4)
+for i in range(4):
+    if i%2==0:
+        letter[i] = 1.
+print(rnn(srn, letter, 'sigmoid'))
+exit()
 
 # accepts only b
 srn1 = {"u": np.array([[177.4457,   0.0000],
