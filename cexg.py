@@ -26,11 +26,11 @@ def rnn(model: dict[str, np.ndarray], vector: np.ndarray, activation = 'tanh')->
     D: activation(Vh)
     """
     if activation == 'sigmoid':
-        hidden_layer = sigmoid(np.matmul(model["w"], model["h"]) + np.matmul(model["u"], vector) + model["b"])
-        return sigmoid(np.matmul(model["v"], hidden_layer + model["c"]))
+        hidden_layer = sigmoid(model["w"] @ model["h"] + model["u"] @ vector + model["b"])
+        return sigmoid(model["v"] @ hidden_layer + model["c"])
     else:
-        hidden_layer = np.tanh(np.matmul(model["w"], model["h"]) + np.matmul(model["u"], vector) + model["b"])
-        return np.tanh(np.matmul(model["v"], hidden_layer + model["c"]))
+        hidden_layer = np.tanh(model["w"] @ model["h"] + model["u"] @ vector + model["b"])
+        return np.tanh(model["v"] @ hidden_layer + model["c"])
 
 def drnn_dx_sigmoid(srn: dict[str, np.ndarray], x: np.ndarray)-> np.ndarray:
     """
