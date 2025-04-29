@@ -15,7 +15,10 @@ def dfa2srn(trans_mat, decod_mat):
     U = np.zeros((S * Q, S))
     W = 3 * np.ones((S * Q, S * Q))
     # The decoder
-    V = np.zeros(S * Q)  #
+    V = np.zeros(S * Q)
+    #biases
+    b = np.zeros(S * Q)
+    c = np.zeros(S * Q)
 
     ### Constructing the parameters
     # The encoder
@@ -36,7 +39,7 @@ def dfa2srn(trans_mat, decod_mat):
             V[k * S:(k + 1) * S] = -1
 
     ### Packing all the tensors
-    target = [J*U, J*(-W), J*V]
+    target = [J*U, J*(-W), J*V, b, c]
 
     return target
 

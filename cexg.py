@@ -26,35 +26,35 @@ def rnn(model: dict[str, np.ndarray], vector: np.ndarray, activation = 'tanh')->
     D: activation(Vh)
     """
     if activation == 'sigmoid':
-        hidden_layer = sigmoid(np.matmul(model["w"], model["h"]) + np.matmul(model["u"], vector))
-        return sigmoid(np.matmul(model["v"], hidden_layer))
+        hidden_layer = sigmoid(np.matmul(model["w"], model["h"]) + np.matmul(model["u"], vector) + model["b"])
+        return sigmoid(np.matmul(model["v"], hidden_layer + model["c"]))
     else:
-        hidden_layer = np.tanh(np.matmul(model["w"], model["h"]) + np.matmul(model["u"], vector))
-        return np.tanh(np.matmul(model["v"], hidden_layer))
+        hidden_layer = np.tanh(np.matmul(model["w"], model["h"]) + np.matmul(model["u"], vector) + model["b"])
+        return np.tanh(np.matmul(model["v"], hidden_layer + model["c"]))
 
 def drnn_dx_sigmoid(srn: dict[str, np.ndarray], x: np.ndarray)-> np.ndarray:
     """
     Return the derivative of sigmoid rnn prediction with respect to x
     """
     return (rnn(srn, x, 'sigmoid') * (1 - rnn(srn, x, 'sigmoid')) *
-            sigmoid(srn["w"] @ srn["h"] + srn["u"] @ x) * (1 - sigmoid(srn["w"] @ srn["h"] + srn["u"] @ x)) *
-            srn["v"] @ srn["u"])
+            sigmoid(srn["w"] @ srn["h"] + srn["u"] @ x + srn["b"]) *
+            (1 - sigmoid(srn["w"] @ srn["h"] + srn["u"] @ x + srn["b"])) * srn["v"] @ srn["u"])
 
 def drnn_dx_tanh(srn: dict[str, np.ndarray], x: np.ndarray)-> np.ndarray:
     """
     Return the derivative of tanh rnn prediction with respect to x
     """
     # return (1 - np.power(rnn(srn, x), 2)) @ np.power(np.tanh(srn["w"] @ srn["h"] + srn["u"] @ x), 2)
-    b = np.power((1 / np.cosh(srn['h'] @ srn['w'] + srn['u'] @ x)), 2)
-    c = np.power((1 / np.cosh(srn['v'] * np.tanh(srn['h'] @ srn['w'] + srn['u'] @ x))), 2)
+    b = np.power((1 / np.cosh(srn['h'] @ srn['w'] + srn['u'] @ x + srn["b"])), 2)
+    c = np.power((1 / np.cosh(srn['v'] * np.tanh(srn['h'] @ srn['w'] + srn['u'] @ x + srn["b"]))), 2)
     return srn['v'] * (b*c) @ srn['u']
 
 def loss_update_sigmoid(srno: dict[str, np.ndarray], srna: dict[str, np.ndarray], x: np.ndarray):
     """
     returns the loss function derivative update with respect to x for srn with sigmoid activation
     """
-    return -2 * ((rnn(srna, x, 'sigmoid') - rnn(srno, x, 'sigmoid') + 0.09) *
-                (drnn_dx_sigmoid(srno, x) - drnn_dx_sigmoid(srna, x))) + 0.1
+    return -2 * ((rnn(srna, x, 'sigmoid') - rnn(srno, x, 'sigmoid')) *
+                (drnn_dx_sigmoid(srno, x) - drnn_dx_sigmoid(srna, x)))
 
 def loss_update_tanh(srno: dict[str, np.ndarray], srna: dict[str, np.ndarray], x: np.ndarray):
     """
