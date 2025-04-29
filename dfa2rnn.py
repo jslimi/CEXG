@@ -39,11 +39,10 @@ def dfa2srn(trans_mat, decod_mat):
             V[k * S:(k + 1) * S] = -1
 
     ### Packing all the tensors
-    target = [J*U, J*(-W), J*V, b, c]
+    srn = {"u": J*U, "w": J*(-W), "v": J*V, "b": b, "c": c}
+    return srn
 
-    return target
-
-# T_m = np.array([[1,0],[0,1]])
-# D_m = np.array([0,0])
+# T_m = np.array([[1,1],[1,1]])
+# D_m = np.array([1,1])
 #
 # print(dfa2srn(T_m, D_m))
