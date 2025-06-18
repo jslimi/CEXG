@@ -1,6 +1,4 @@
-"""Copied from the source code for the library AllenNLP.
-https://github.com/allenai/allennlp/blob/master/allennlp/nn/util.py#L628-L765
-"""
+
 from tqdm import trange
 from typing import Union, List
 import numpy
@@ -10,173 +8,31 @@ import random
 import os
 from collections import defaultdict
 
-
-def lang1(nsamples, seq_length):
+def model_info(tomita: int):
     """
-    (+)*
-    returns  list[list[str]] and list[list[int]]
+    Returns the recurrent net information
+    tomita: the tomita lang class
     """
-    samples_in_lang = []
-    for i in range(nsamples):
-        sequence = []
-        label = [1]
-        for j in range(seq_length):
-            sequence.append(str(round(random.uniform(0, 256), 3)))
-            label.append(1)
-        samples_in_lang.append((sequence, label))
+    # reading input outputs samples
+    x_sampling, y_sampling = read_data(f"data/datasets/tomita_lang/tomita{tomita}/test/tom{tomita}_sents.txt",
 
-    samples_not_in_lang = []
-    for i in range(nsamples):
-        sequence = []
-        label = [1]
-        found0 = False
-        for j in range(seq_length):
-            sequence.append(str(round(random.uniform(-256, 256), 3)))
-            if float(sequence[j]) > 0:
-                label.append(1)
-            else:
-                found0 = True
-                label.append(0)
-                for k in range(seq_length - j - 1):
-                    sequence.append(str(round(random.uniform(-256, 256), 3)))
-                    label.append(0)
-                samples_not_in_lang.append((sequence, label))
-                break
-        if found0 is False:
-            samples_not_in_lang.append((sequence, label))
-    dataset = samples_in_lang + samples_not_in_lang
-    random.shuffle(dataset)
-    sequences = [dataset[i][0] for i in range(nsamples)]
-    labels = [dataset[i][1] for i in range(nsamples)]
-    return sequences, labels
+                                       f"data/datasets/tomita_lang/tomita{tomita}/test/tom{tomita}_labels.txt")
+    # setting the model and tokenization function
+    tokenizer = Tokenizer()
+    sampling_tokens = pad_sequence([torch.tensor(tokenizer.tokenize(sent)) for sent in x_sampling], batch_first=True)
+    sampling_labels = pad_sequence([torch.tensor(sent) for sent in y_sampling], batch_first=True)
+    sampling_mask = (sampling_tokens != 0)
+    trained_model = Tagger(tokenizer.n_tokens, 10, 100)
+    filename = f"data/models/tomita_rnn/tom{tomita}.th"
+    trained_model.load_state_dict(torch.load(filename, map_location=torch.device('cpu')))
+    with torch.no_grad():
+        sampling_results = trained_model(sampling_tokens, sampling_labels, sampling_mask)
+    # storing the predictions, hidden states and vectors embeddings
+    sampling_preds = sampling_results["predictions"]
+    hidden_states = sampling_results["states"]
+    embeddings = sampling_results["embeddings"]
+    return x_sampling, y_sampling, sampling_tokens, sampling_labels, sampling_preds, hidden_states, embeddings
 
-def lang2(nsamples, seq_length):
-    """
-    (+-)*
-    returns  list[list[str]] and list[list[int]]
-    """
-    assert seq_length % 2 == 0
-    samples_in_lang = []
-    for i in range(nsamples):
-        sequence = []
-        label = [1]
-        for j in range(seq_length // 2):
-            sequence.append(str(round(random.uniform(0, 256), 3)))
-            label.append(0)
-            sequence.append(str(round(random.uniform(-256, -0.001), 3)))
-            label.append(1)
-        samples_in_lang.append((sequence, label))
-
-    samples_not_in_lang = []
-    for i in range(nsamples):
-        sequence = []
-        label = [1]
-        found0 = False
-        for j in range(seq_length):
-            sequence.append(str(round(random.uniform(-256, 256), 3)))
-            if float(sequence[j]) > 0 and len(label) != 0 and label[j - 1] == 1:
-                label.append(0)
-            elif float(sequence[j]) < 0 and len(label) != 0 and label[j - 1] == 0:
-                label.append(1)
-            else:
-                found0 = True
-                label.append(0)
-                for k in range(seq_length - j - 1):
-                    sequence.append(str(round(random.uniform(-256, 256), 3)))
-                    label.append(0)
-                samples_not_in_lang.append((sequence, label))
-                break
-        if found0 is False:
-            samples_not_in_lang.append((sequence, label))
-    dataset = samples_in_lang + samples_not_in_lang
-    random.shuffle(dataset)
-    sequences = [dataset[i][0] for i in range(nsamples)]
-    labels = [dataset[i][1] for i in range(nsamples)]
-    return sequences, labels
-
-def lang3(nsamples, seq_length):
-    """
-    no (+++)
-    """
-    samples_in_lang = []
-    for i in range(nsamples):
-        sequence = []
-        label = [1]
-        for j in range(seq_length):
-            sequence.append(str(round(random.uniform(-256, 256), 3)))
-            if len(sequence) > 2 and float(sequence[j]) > 0 and float(sequence[j - 1]) > 0 and float(
-                    sequence[j - 2]) > 0:
-                sequence[j] = str(round(random.uniform(-256, -0.001), 3))
-            label.append(1)
-        samples_in_lang.append((sequence, label))
-
-    samples_not_in_lang = []
-    for i in range(nsamples):
-        sequence = []
-        label = [1]
-        found0 = False
-        for j in range(seq_length):
-            sequence.append(str(round(random.uniform(-256, 256), 3)))
-            if len(sequence) > 2 and float(sequence[j]) > 0 and float(sequence[j - 1]) > 0 and float(
-                    sequence[j - 2]) > 0:
-                found0 = True
-                label.append(0)
-                for k in range(seq_length - j - 1):
-                    sequence.append(str(round(random.uniform(-256, 256), 3)))
-                    label.append(0)
-                samples_not_in_lang.append((sequence, label))
-                break
-            else:
-                label.append(1)
-        if found0 is False:
-            samples_not_in_lang.append((sequence, label))
-    dataset = samples_in_lang + samples_not_in_lang
-    random.shuffle(dataset)
-    sequences = [dataset[i][0] for i in range(nsamples)]
-    labels = [dataset[i][1] for i in range(nsamples)]
-    return sequences, labels
-
-def str_to_int(sent: str) -> list[int]:
-    """Transforms a string into a list of ints
-
-    Args:
-        sent: A string of labels e.g. "1010101"
-
-    Returns:
-        sent_list: A list of ints, e.g. [1, 0, 1, 0, 1, 0, 1]
-
-    """
-    sent_list = []
-    for letter in sent:
-        sent_list.append(int(letter))
-    return sent_list
-
-def read_data(sentences_file: str, labels_file: str) -> (list[str], list[list[int]]):
-    """Reads data
-
-    Args:
-        sentences_file: path to the txt file containing language samples,
-        e.g. L2: "ababab" (type: str)
-        labels_file: path to the txt file containing language samples,
-        e.g. L2: "1010101" (type: str)
-
-    Returns:
-        sentences: List of sentences of type str
-        labels: List of labels, where the labels are a list of ints i.e. List[List[int]]
-
-    """
-    with open(sentences_file) as f:
-        sentences = [line.rstrip() for line in f]
-
-    with open(labels_file, "r") as f:
-        labels = [line.rstrip() for line in f]
-
-        to_drop = "[] ,\n"
-        table = str.maketrans("", "", to_drop)
-        for i in range(len(labels)):
-            labels[i] = str_to_int(labels[i].translate(table))
-
-    return sentences, labels
 
 class Tokenizer:
     def __init__(self, bos=True, eos=False):
@@ -218,6 +74,10 @@ class Tokenizer:
     @property
     def vocab(self):
         return [tok for tok in self.token_to_index if not tok.startswith("<")]
+
+
+#Copied from the source code for the library AllenNLP.
+#https://github.com/allenai/allennlp/blob/master/allennlp/nn/util.py#L628-L765
 
 def sequence_cross_entropy_with_logits(
     logits: torch.FloatTensor,
@@ -500,31 +360,3 @@ def train_rnn(lang= "tomita 1.0"):
         if epoch - best_epoch > 2:
             print("Stopped early!")
             break
-
-def model_info(tomita: int):
-    """
-    Returns the recurrent net information
-    tomita: the tomita lang class
-    """
-    # reading input outputs samples
-    x_sampling, y_sampling = read_data(f"data/datasets/tomita_lang/tomita{tomita}/test/tom{tomita}_sents.txt",
-
-                                       f"data/datasets/tomita_lang/tomita{tomita}/test/tom{tomita}_labels.txt")
-    # setting the model and tokenization function
-    tokenizer = Tokenizer()
-    sampling_tokens = pad_sequence([torch.tensor(tokenizer.tokenize(sent)) for sent in x_sampling], batch_first=True)
-    sampling_labels = pad_sequence([torch.tensor(sent) for sent in y_sampling], batch_first=True)
-    sampling_mask = (sampling_tokens != 0)
-    trained_model = Tagger(tokenizer.n_tokens, 10, 100)
-    filename = f"data/models/tomita_rnn/tom{tomita}.th"
-    trained_model.load_state_dict(torch.load(filename, map_location=torch.device('cpu')))
-    with torch.no_grad():
-        sampling_results = trained_model(sampling_tokens, sampling_labels, sampling_mask)
-    # storing the predictions, hidden states and vectors embeddings
-    sampling_preds = sampling_results["predictions"]
-    hidden_states = sampling_results["states"]
-    embeddings = sampling_results["embeddings"]
-    return x_sampling, y_sampling, sampling_tokens, sampling_labels, sampling_preds, hidden_states, embeddings
-
-if __name__ == '__main__':
-    train_rnn()
